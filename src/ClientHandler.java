@@ -45,7 +45,8 @@ public class ClientHandler extends Thread {
 			inputStream = new BufferedInputStream(socket.getInputStream());
 			System.out.println("Init success");
 		} catch (IOException e1) {
-			e1.printStackTrace();
+			System.out.println("Client is disconnected");
+			FileServer.statistics.removeActiveUers();
 		}
 
 		while (true) {
@@ -69,14 +70,17 @@ public class ClientHandler extends Thread {
 							System.out.println(tmp1 + "----" + tmp2 + "----");
 						}
 					} catch (Exception e) {
-						System.out.println("Invalid details");
-						e.printStackTrace();
+//						System.out.println("Invalid details");
+						System.out.println("Client is disconnected");
+						FileServer.statistics.removeActiveUers();
+//						e.printStackTrace();
 						break;
 					}
 
 				} catch (Exception e) {
 					System.out.println(detail.getName() + " is disconnected");
 					detail.setOnline(false);
+					FileServer.statistics.removeActiveUers();
 					break;
 					// e.printStackTrace();
 				}
@@ -109,24 +113,32 @@ public class ClientHandler extends Thread {
 				filesize = (int) Long.parseLong(file.get("filesize"));
 				remainingBytes = filesize;
 				System.out.println("Receiving file");
-				while (true) {
-					// System.out.println("Reading from stream");
-					bytesRead = inputStream.read(buffer, 0, Math.min(bufferSize, remainingBytes));
-					FileServer.statistics.addDataUploaded(bytesRead);
-					// System.out.println(bytesRead + " bytes received");
-					if (bytesRead < 0 || remainingBytes <= 0)
-						break;
-					else
-						remainingBytes = remainingBytes - bytesRead;
+				try {
+					while (true) {
+						// System.out.println("Reading from stream");
+						bytesRead = inputStream.read(buffer, 0, Math.min(bufferSize, remainingBytes));
+						
+						// System.out.println(bytesRead + " bytes received");
+						if (bytesRead < 0 || remainingBytes <= 0)
+							break;
+						else
+							remainingBytes = remainingBytes - bytesRead;
 
-					// System.out.println(remainingBytes + " bytes remaining");
-					outputStream.write(buffer, 0, bytesRead);
-					// System.out.println(bytesRead + " bytes written to file");
+						// System.out.println(remainingBytes + " bytes remaining");
+						outputStream.write(buffer, 0, bytesRead);
+						// System.out.println(bytesRead + " bytes written to file");
+					}
+				} catch (Exception e) {
+//					e.printStackTrace();
+					FileServer.statistics.addDataUploaded(filesize-remainingBytes);
+					System.out.println("Client is disconnected");
+					FileServer.statistics.removeActiveUers();
+					break;
 				}
 
 				outputStream.flush();
 				System.out.println("File received success fully");
-
+				FileServer.statistics.addDataUploaded(filesize);
 				// verification using checksum
 				// sending ACK TO Client
 				if (Checksum.getChecksum(path).equals(file.get("checksum"))) {
@@ -148,6 +160,8 @@ public class ClientHandler extends Thread {
 				outputStream.close();
 				// }
 			} catch (IOException e) {
+				System.out.println("Client is disconnected");
+				FileServer.statistics.removeActiveUers();
 				e.printStackTrace();
 			}
 
